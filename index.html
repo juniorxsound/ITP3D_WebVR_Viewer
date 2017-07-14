@@ -103,16 +103,43 @@
             //Load shit
             var loader = new THREE.JSONLoader(manager);
             loader.load('models/shifman/shiffman.json', function (geomtery, material) {
-                material.map = new THREE.TextureLoader(manager).load('models/shifman/shiff2.jpg');
+                console.log(material);
                 rooms.shifman = new THREE.Mesh(geomtery, material);
                 rooms.shifman.position.set(0, -5, -30);
+                //Position
                 addVector3('Shifman Position', rooms.shifman.position);
-                addFunction('Go to Shifman', function () {
-                    TweenLite.to(rooms.shifman.position, 2, {
-                        x: 0,
-                        y: 0,
-                        z: 0
-                    });
+                //Draw wireframe
+                addFunction('Wireframe', function(){
+                    if(!material[0].wireframe){
+                        material[0].wireframe = true;
+                    } else {
+                        material[0].wireframe = false;
+                    }       
+                });
+                //Animation
+                addFunction('Shifman', function () {
+                    if (!rooms.shifman.isInside) {
+                        TweenLite.to(rooms.shifman.position, 2, {
+                            x: 0,
+                            y: 0,
+                            z: 0,
+                            onComplete: function () {
+                                console.log('[Rooms] Inside Shifman Room');
+                                rooms.shifman.isInside = true;
+                            }
+                        });
+                    } else {
+                        TweenLite.to(rooms.shifman.position, 2, {
+                            x: 0,
+                            y: -5,
+                            z: -30,
+                            onComplete: function () {
+                                console.log('[Rooms] Outside Shifman Room');
+                                rooms.shifman.isInside = false;
+                            }
+                        });
+                    }
+
                 });
 
                 scene.add(rooms.shifman);
