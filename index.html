@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>ITP 3D WebVR Model Viewer</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <!-- Origin Trial Token, feature = WebVR (For Chrome M59+), origin = https://juniorxsound.github.io, expires = 2017-08-16 -->
+    <meta http-equiv="origin-trial" data-feature="WebVR (For Chrome M59+)" data-expires="2017-08-16" content="Ahwo2B0LoM2bLB015eLJ4CAvJa0xF9VVn0FO1/AaYfPklvBUwcfYFkXKenD57vhGo1WQt9Hg9IFauhKdRgLN8w8AAABreyJvcmlnaW4iOiJodHRwczovL2p1bmlvcnhzb3VuZC5naXRodWIuaW86NDQzIiwiZmVhdHVyZSI6IldlYlZSMS4xIiwiZXhwaXJ5IjoxNTAyOTEyNTk5LCJpc1N1YmRvbWFpbiI6dHJ1ZX0=">
+    <style>
+        body {
+            background: #000000;
+            padding: 0;
+            margin: 0;
+            font-weight: bold;
+            overflow: hidden;
+        }
+
+        #loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            background-color: #ffffff;
+            height: 15px;
+            width: 0%;
+            /* Animate */
+            -webkit-transition: all 0.3s ease;
+            -moz-transition: all 0.3s ease;
+            -o-transition: all 0.3s ease;
+            -ms-transition: all 0.3s ease;
+            transition: all 0.3s ease;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loader"></div>
+    <div id="container"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/86/three.js"></script>
+    <!--<script src="lib/VRControls.js"></script>-->
+    <!--<script src="lib/webvr-polyfill.min.js"></script>-->
+    <script src="lib/WebVR.js"></script>
+    <script src="lib/webvr-polyfill.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.5/dat.gui.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/1.20.2/TweenLite.min.js"></script>
+    <script>
+        WebVRConfig = {
+            BUFFER_SCALE: 1.0
+        }
+    </script>
+    <script>
+        console.log(loader);
+        //WebVR setup
+        WEBVR.checkAvailability().catch(function (message) {
+            document.body.appendChild(WEBVR.getMessageContainer(message));
+        });
+
+        //Global vars
+        var container, stats, clock;
+        var camera,
+            scene,
+            renderer,
+            manager,
+            sound,
+            isRotating = true;
+
+        var rooms = {};
+        var guiFunctions = {};
+        var gui = new dat.GUI();
+        //dat.GUI.toggleHide();
+
+
+        window.onload = function () {
+            init();
+        }
+
+        function init() {
+            listener = new THREE.AudioListener();
+            var manager = new THREE.LoadingManager();
+            var progress = document.getElementById('loader');
+            manager.onLoad = function () {
+                progress.style.display = 'none';
+                animate();
+            }
+            manager.onProgress = function (url, itemsLoaded, itemsTotal) {
+                console.log('Loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.');
+                progress.style.width = (itemsLoaded / itemsTotal * 100) + '%';
+            };
+
+            container = document.getElementById('container');
+
+            scene = new THREE.Scene();
+
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 2000);
+            camera.add(listener);
+
+            clock = new THREE.Clock();
+
+            //Sound
+            sound = new THREE.Audio(listener);
+            var audioLoader = new THREE.AudioLoader(manager);
+
+            //Load shit
+            var loader = new THREE.JSONLoader(manager);
+            loader.load('models/shifman/shiffman.json', function (geomtery, material) {
+                material.map = new THREE.TextureLoader(manager).load('models/shifman/shiff2.jpg');
+                rooms.shifman = new THREE.Mesh(geomtery, material);
+                rooms.shifman.position.set(0, -5, -30);
+                addVector3('Shifman Position', rooms.shifman.position);
+                addFunction('Go to Shifman', function () {
+                    TweenLite.to(rooms.shifman.position, 2, {
+                        x: 0,
+                        y: 0,
+                        z: 0
+                    });
+                });
+
+                scene.add(rooms.shifman);
+            });
+
+
+            // lights
+            var ambientLight = new THREE.AmbientLight(0xcccccc, 1);
+            scene.add(ambientLight);
+
+            // renderer
+            renderer = new THREE.WebGLRenderer({
+                antialias: true
+            });
+
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+            renderer.vr.enabled = true;
+
+            WEBVR.getVRDisplay(function (display) {
+                renderer.vr.setDevice(display);
+                document.body.appendChild(WEBVR.getButton(display, renderer.domElement));
+            });
+
+            // events
+            window.addEventListener('resize', onWindowResize, false);
+        }
+        //
+        function onWindowResize(event) {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        //
+        function animate() {
+            renderer.animate(render);
+        }
+
+        function render() {
+            var delta = clock.getDelta();
+
+            renderer.render(scene, camera);
+        }
+
+
+        //Util stuff - needs cleanup
+        function addVector3(folder, object) {
+            var folder = gui.addFolder(folder);
+            for (var child in object) {
+                if (child == 'x' || child == 'y' || child == 'z') {
+                    folder.add(object, child);
+                }
+            }
+        }
+
+        function addFunction(name, callback) {
+            guiFunctions[name] = callback;
+            gui.add(guiFunctions, name);
+        }
+    </script>
+</body>
+
+</html>
